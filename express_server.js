@@ -2,8 +2,12 @@ const express = require("express");
 const app = express();
 const PORT = 8080; // default port 8080
 
+// CONFIG //
+
 app.set("view engine", "ejs"); // tells the Express app to use EJS as its templating engine
 app.use(express.urlencoded({ extended: true })); // encode the data to make it readable // Express library's body parsing middleware
+
+// DATA BASE //
 
 // generate a unique short url id
 function generateRandomString() {
@@ -32,6 +36,10 @@ app.get("/", (req, res) => {
 app.listen(PORT, () => {
   console.log(`Example app listening on port ${PORT}!`);
 });
+
+// MIDDLEWARE //
+
+// ROUTES //
 
 // /urls.json webpage - json object
 app.get("/urls.json", (req, res) => {
@@ -75,4 +83,11 @@ app.get("/u/:id", (req, res) => {
   const shortURL = req.params.id; // created a new variable for shortURL
   const longURL = urlDatabase[shortURL];
   res.redirect(longURL);
+});
+
+// DELETE ROUTE
+app.post("/urls/:id/delete", (req, res) => {
+  const id = req.params.id;
+  delete urlDatabase[id];
+  res.redirect("/urls");
 });
