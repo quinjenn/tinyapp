@@ -19,6 +19,7 @@ function generateRandomString() {
   return result;
 }
 
+// urlDatabase used to keep track of all the URLs and their shortened forms
 const urlDatabase = {
   b2xVn2: "http://www.lighthouselabs.ca",
   "9sm5xK": "http://www.google.com",
@@ -44,6 +45,7 @@ app.get("/hello", (req, res) => {
 
 // new route handler for "/urls"
 app.get("/urls", (req, res) => {
+  //rending the url index template
   const templateVars = { urls: urlDatabase };
   res.render("urls_index", templateVars);
 });
@@ -57,7 +59,7 @@ app.get("/urls/new", (req, res) => {
 app.get("/urls/:id", (req, res) => {
   const templateVars = {
     id: req.params.id,
-    longURL: "http://www.lighthouselabs.ca",
+    longURL: urlDatabase[req.params.id], //req.params is how to access the value // req.params.id is the shortURL
   };
   res.render("urls_show", templateVars);
 });
@@ -66,4 +68,11 @@ app.get("/urls/:id", (req, res) => {
 app.post("/urls", (req, res) => {
   console.log(req.body); // Log the POST request body to the console
   res.send("Ok"); // Respond with 'Ok' (we will replace this)
+});
+
+// /urls redirection to /urls/:id.
+app.get("/u/:id", (req, res) => {
+  const shortURL = req.params.id; // created a new variable for shortURL
+  const longURL = urlDatabase[shortURL];
+  res.redirect(longURL);
 });
