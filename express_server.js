@@ -119,3 +119,10 @@ app.post("/login", (req, res) => {
   res.cookie("password", password);
   res.redirect("/urls");
 });
+
+// LOGOUT ROUTE
+app.post("/logout", (req, res) => {
+  res.clearCookie("username");
+  res.clearCookie("password");
+  res.redirect("/urls");
+});
