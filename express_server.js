@@ -1,11 +1,18 @@
 const express = require("express");
 const app = express();
 const PORT = 8080; // default port 8080
+const cookieParser = require("cookie-parser");
 
 // CONFIG //
 
 app.set("view engine", "ejs"); // tells the Express app to use EJS as its templating engine
 app.use(express.urlencoded({ extended: true })); // encode the data to make it readable // Express library's body parsing middleware
+app.use(cookieParser());
+
+// app.get("/", function (req, res) {
+// Cookies that have not been signed
+// console.log("Cookies: ", req.cookies);
+// });
 
 // DATA BASE //
 
@@ -54,18 +61,22 @@ app.get("/hello", (req, res) => {
 // new route handler for "/urls"
 app.get("/urls", (req, res) => {
   //rending the url index template
-  const templateVars = { urls: urlDatabase };
+  const templateVars = { urls: urlDatabase, username: req.cookies["username"] };
   res.render("urls_index", templateVars);
 });
 
 // GET route, with the path /urls/new
 app.get("/urls/new", (req, res) => {
-  res.render("urls_new");
+  const templateVars = {
+    username: req.cookies["username"],
+  };
+  res.render("urls_new", templateVars);
 });
 
 // new route handler for "/urls/:id"
 app.get("/urls/:id", (req, res) => {
   const templateVars = {
+    username: req.cookies["username"],
     id: req.params.id,
     longURL: urlDatabase[req.params.id], //req.params is how to access the value // req.params.id is the shortURL
   };
@@ -97,5 +108,14 @@ app.post("/urls/:id", (req, res) => {
   const shortURL = req.params.id;
   const longURL = req.body.longURL;
   urlDatabase[shortURL] = longURL;
+  res.redirect("/urls");
+});
+
+// LOGIN COOKIE
+app.post("/login", (req, res) => {
+  const login = req.body.username;
+  const password = req.body.password;
+  res.cookie("username", login);
+  res.cookie("password", password);
   res.redirect("/urls");
 });

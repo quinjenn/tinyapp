@@ -30,6 +30,7 @@
         <tbody>
           <% for (let id in urls) { %>
           <tr>
+            <!-- this comes from templateVars in express_server -->
             <td><%= id %></td>
             <td><%= urls[id] %></td>
             <td>
