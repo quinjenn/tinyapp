@@ -14,6 +14,7 @@
       integrity="sha384-GJzZqFGwb1QTTN6wy59ffF1BuGJpLSa9DkKMp0DgiMDm4iYMj70gZWKYbI706tWS"
       crossorigin="anonymous"
     />
+    <script src='https://kit.fontawesome.com/a076d05399.js' crossorigin='anonymous'></script>
     <title>TinyApp</title>
   </head>
   <body>
@@ -25,6 +26,8 @@
           <tr>
             <th scope="col">Short URL ID</th>
             <th scope="col">Long URL</th>
+            <th scope="col">Edit</th>
+            <th scope="col">Delete</th>
           </tr>
         </thead>
         <tbody>
@@ -34,7 +37,10 @@
             <td><%= id %></td>
             <td><%= urls[id].longURL %></td>
             <td>
-              <a href="/urls/<%= id %>">Edit</a>
+              <a href="/urls/<%= id %>"><i class="far fa-edit" style="font-size:24px"></i></a>
+              </form>
+            </td>
+            <td>
               <form method="POST" action="/urls/<%= id %>/delete">
                 <button type="submit" class="btn btn-primary">Delete</button>
               </form>
