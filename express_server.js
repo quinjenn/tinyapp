@@ -2,6 +2,7 @@ const express = require("express");
 const app = express();
 const PORT = 8080; // default port 8080
 const cookieParser = require("cookie-parser");
+const bcrypt = require("bcryptjs");
 
 // CONFIG //
 
@@ -209,7 +210,6 @@ app.post("/login", (req, res) => {
   const password = req.body.password;
   // Search for a user with an existing email
   const foundUser = getUserbyEmail(users, email);
-  console.log("foundUser", foundUser);
   // Check if the email is not found
   //   if (!foundUser) {
   //     return res.status(403).send("Invalid email or password.");
@@ -223,6 +223,8 @@ app.post("/login", (req, res) => {
   //   // Redirect to /urls
   //   res.redirect("/urls");
   // });
+
+  /*////////////////COMMENTING OUT TO TEST/////////
   if (foundUser && foundUser.password === password) {
     // set cookie and redirect to /urls
     res.cookie("user_id", foundUser.id);
@@ -230,6 +232,18 @@ app.post("/login", (req, res) => {
   } else {
     res.status(403).send("Incorrect email or password");
   }
+});*/
+
+  if (foundUser === null) {
+    return res.status(401).send("Incorrect email or password");
+  }
+
+  if (!bcrypt.compareSync(password, foundUser.password)) {
+    return res.status(401).send("Incorrect email or password");
+  }
+
+  res.cookie("user_id", foundUser.id);
+  res.redirect("/urls");
 });
 
 // LOGOUT ROUTE to clear cookies
@@ -262,11 +276,13 @@ app.post("/register", (req, res) => {
     res.status(400).send("Email already exists.");
     return;
   }
+  // use bcrypt to hash the password
+  const hashedPassword = bcrypt.hashSync(password, 10);
   // Add the random ID and add it to the user
-  const newUser = {
+  newUser = {
     id: generateRandomString(),
     email,
-    password,
+    password: hashedPassword,
   };
   // Adding the user to the database (email, user, and id)
   users[newUser.id] = newUser;
