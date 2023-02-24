@@ -39,6 +39,15 @@ function getUserbyEmail(users, email) {
   return null;
 }
 
+function getUserbyId(users, ID) {
+  for (const userId in users) {
+    if (users[userId].id === ID) {
+      return users[userId];
+    }
+  }
+  return null;
+}
+
 // store and access the users
 const users = {
   userRandomID: {
@@ -55,8 +64,14 @@ const users = {
 
 // urlDatabase used to keep track of all the URLs and their shortened forms
 const urlDatabase = {
-  b2xVn2: "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com",
+  b6UTxQ: {
+    longURL: "https://www.tsn.ca",
+    userID: "aJ48lW",
+  },
+  i3BoGr: {
+    longURL: "https://www.google.ca",
+    userID: "aJ48lW",
+  },
 };
 
 app.get("/", (req, res) => {
@@ -68,7 +83,34 @@ app.listen(PORT, () => {
 });
 
 // MIDDLEWARE //
+function isLoggedIn(req, res, next) {
+  const userId = req.cookies["user_id"];
+  if (userId && getUserbyId(userId)) {
+    next();
+  } else {
+    res.redirect("/login");
+  }
+}
 
+function isLoggedOut(req, res, next) {
+  const userId = req.cookies["user_id"];
+  if (!userId || !getUserbyId(userId)) {
+    next();
+  } else {
+    res.redirect("/urls");
+  }
+}
+
+// returns the URLs where the userID is equal to the id of the currently logged-in user
+function urlsForUser(id) {
+  let userUrls = {};
+  for (let url in urlDatabase) {
+    if (urlDatabase[url].userID === id) {
+      userUrls[url] = urlDatabase[url];
+    }
+  }
+  return userUrls;
+}
 // ROUTES //
 
 // /urls.json webpage - json object
@@ -81,27 +123,34 @@ app.get("/hello", (req, res) => {
   res.send("<html><body>Hello <b>World</b></body></html>\n");
 });
 
-// new route handler for "/urls"
-app.get("/urls", (req, res) => {
+// new route handler for "/urls" // if loggedin
+app.get("/urls", isLoggedIn, (req, res) => {
   //rending the url index template
   const userId = req.cookies["user_id"];
   const templateVars = {
-    urls: urlDatabase,
-    user: users[userId],
+    urls: urlsForUser(userId),
+    user: getUserbyId(users, userId),
   };
+  console.log("userID", userId);
   res.render("urls_index", templateVars);
 });
 
-// GET route, with the path /urls/new
-app.get("/urls/new", (req, res) => {
+// GET route, with the path /urls/new // if loggied in
+app.get("/urls/new", isLoggedIn, (req, res) => {
+  const userId = req.cookies["user_id"];
   const templateVars = {
-    user: users[req.cookies["user_id"]],
+    user: getUserbyId(users, userId),
   };
   res.render("urls_new", templateVars);
 });
 
 // new route handler for "/urls/:id"
-app.get("/urls/:id", (req, res) => {
+app.get("/urls/:id", isLoggedIn, (req, res) => {
+  if (req.cookies["user_id"] !== urlDatabase[req.params.id].userID) {
+    return res.send(
+      "<html><body>Error: 401: You do not have access this page</body></html>\n"
+    );
+  }
   const templateVars = {
     user: users[req.cookies["user_id"]],
     id: req.params.id,
@@ -112,29 +161,45 @@ app.get("/urls/:id", (req, res) => {
 
 // POST request to receive form submission
 app.post("/urls", (req, res) => {
-  console.log(req.body); // Log the POST request body to the console
-  res.send("Ok"); // Respond with 'Ok' (we will replace this)
+  const userId = req.cookies["user_id"];
+  const shortURL = generateRandomString();
+  const longURL = req.body.longURL;
+  urlDatabase[shortURL] = {
+    longURL: longURL,
+    userID: userId,
+  };
+  res.redirect("/urls");
 });
 
 // /urls redirection to /urls/:id.
 app.get("/u/:id", (req, res) => {
   const shortURL = req.params.id; // created a new variable for shortURL
-  const longURL = urlDatabase[shortURL];
+  const longURL = urlDatabase[shortURL].longURL;
   res.redirect(longURL);
 });
 
 // DELETE ROUTE
-app.post("/urls/:id/delete", (req, res) => {
+app.post("/urls/:id/delete", isLoggedIn, (req, res) => {
+  if (req.cookies["user_id"] !== urlDatabase[req.params.id].userID) {
+    return res.send(
+      "<html><body>Error: 401: You do not have access this page</body></html>\n"
+    );
+  }
   const id = req.params.id;
   delete urlDatabase[id];
   res.redirect("/urls");
 });
 
 // EDIT ROUTE
-app.post("/urls/:id", (req, res) => {
+app.post("/urls/:id", isLoggedIn, (req, res) => {
+  if (req.cookies["user_id"] !== urlDatabase[req.params.id].userID) {
+    return res.send(
+      "<html><body>Error: 401: You do not have access this page</body></html>\n"
+    );
+  }
   const shortURL = req.params.id;
   const longURL = req.body.longURL;
-  urlDatabase[shortURL] = longURL;
+  urlDatabase[shortURL].longURL = longURL;
   res.redirect("/urls");
 });
 
@@ -146,17 +211,25 @@ app.post("/login", (req, res) => {
   const foundUser = getUserbyEmail(users, email);
   console.log("foundUser", foundUser);
   // Check if the email is not found
-  if (!foundUser) {
-    return res.status(403).send("Invalid email or password.");
+  //   if (!foundUser) {
+  //     return res.status(403).send("Invalid email or password.");
+  //   }
+  //   // Check if the password is correct
+  //   if (foundUser.password !== password) {
+  //     return res.status(403).send("Invalid email or password.");
+  //   }
+  //   // Set cookie
+  //   res.cookie("user_id", foundUser.id);
+  //   // Redirect to /urls
+  //   res.redirect("/urls");
+  // });
+  if (foundUser && foundUser.password === password) {
+    // set cookie and redirect to /urls
+    res.cookie("user_id", foundUser.id);
+    res.redirect("/urls");
+  } else {
+    res.status(403).send("Incorrect email or password");
   }
-  // Check if the password is correct
-  if (foundUser.password !== password) {
-    return res.status(403).send("Invalid email or password.");
-  }
-  // Set cookie
-  res.cookie("user_id", foundUser.id);
-  // Redirect to /urls
-  res.redirect("/urls");
 });
 
 // LOGOUT ROUTE to clear cookies
@@ -166,9 +239,10 @@ app.post("/logout", (req, res) => {
 });
 
 //GET /register endpoint
-app.get("/register", (req, res) => {
+app.get("/register", isLoggedOut, (req, res) => {
+  const userId = req.cookies["user_id"];
   const templateVars = {
-    user: users[req.cookies["user_id"]],
+    user: getUserbyId(users, userId),
   };
   res.render("register", templateVars);
 });
@@ -182,7 +256,7 @@ app.post("/register", (req, res) => {
     res.status(400).send("Email and password are required to log in.");
     return;
   }
-  const foundUser = getUserbyEmail(email, users);
+  const foundUser = getUserbyEmail(users, email);
   // Check if the email is already taken
   if (foundUser) {
     res.status(400).send("Email already exists.");
@@ -203,9 +277,10 @@ app.post("/register", (req, res) => {
 });
 
 // GET /login endpoint
-app.get("/login", (req, res) => {
+app.get("/login", isLoggedOut, (req, res) => {
+  const userId = req.cookies["user_id"];
   const templateVars = {
-    user: users[req.cookies["user_id"]],
+    user: getUserbyId(users, userId),
   };
   res.render("login", templateVars);
 });
