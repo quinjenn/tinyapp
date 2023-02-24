@@ -1,14 +1,27 @@
 const express = require("express");
 const app = express();
 const PORT = 8080; // default port 8080
-const cookieParser = require("cookie-parser");
+// const cookieParser = require("cookie-parser");
+const cookieSession = require("cookie-session");
 const bcrypt = require("bcryptjs");
 
 // CONFIG //
 
 app.set("view engine", "ejs"); // tells the Express app to use EJS as its templating engine
 app.use(express.urlencoded({ extended: true })); // encode the data to make it readable // Express library's body parsing middleware
-app.use(cookieParser());
+// app.use(cookieParser());
+app.use(
+  cookieSession({
+    name: "session",
+    keys: [
+      "user_id",
+      /* secret keys */
+    ],
+
+    // Cookie Options
+    // maxAge: 24 * 60 * 60 * 1000, // 24 hours
+  })
+);
 
 // app.get("/", function (req, res) {
 // Cookies that have not been signed
@@ -85,7 +98,7 @@ app.listen(PORT, () => {
 
 // MIDDLEWARE //
 function isLoggedIn(req, res, next) {
-  const userId = req.cookies["user_id"];
+  const userId = req.session["user_id"];
   if (userId && getUserbyId(userId)) {
     next();
   } else {
@@ -94,7 +107,7 @@ function isLoggedIn(req, res, next) {
 }
 
 function isLoggedOut(req, res, next) {
-  const userId = req.cookies["user_id"];
+  const userId = req.session["user_id"];
   if (!userId || !getUserbyId(userId)) {
     next();
   } else {
@@ -127,18 +140,17 @@ app.get("/hello", (req, res) => {
 // new route handler for "/urls" // if loggedin
 app.get("/urls", isLoggedIn, (req, res) => {
   //rending the url index template
-  const userId = req.cookies["user_id"];
+  const userId = req.session["user_id"];
   const templateVars = {
     urls: urlsForUser(userId),
     user: getUserbyId(users, userId),
   };
-  console.log("userID", userId);
   res.render("urls_index", templateVars);
 });
 
 // GET route, with the path /urls/new // if loggied in
 app.get("/urls/new", isLoggedIn, (req, res) => {
-  const userId = req.cookies["user_id"];
+  const userId = req.session["user_id"];
   const templateVars = {
     user: getUserbyId(users, userId),
   };
@@ -147,13 +159,13 @@ app.get("/urls/new", isLoggedIn, (req, res) => {
 
 // new route handler for "/urls/:id"
 app.get("/urls/:id", isLoggedIn, (req, res) => {
-  if (req.cookies["user_id"] !== urlDatabase[req.params.id].userID) {
+  if (req.session["user_id"] !== urlDatabase[req.params.id].userID) {
     return res.send(
       "<html><body>Error: 401: You do not have access this page</body></html>\n"
     );
   }
   const templateVars = {
-    user: users[req.cookies["user_id"]],
+    user: users[req.session["user_id"]],
     id: req.params.id,
     longURL: urlDatabase[req.params.id], //req.params is how to access the value // req.params.id is the shortURL
   };
@@ -162,7 +174,7 @@ app.get("/urls/:id", isLoggedIn, (req, res) => {
 
 // POST request to receive form submission
 app.post("/urls", (req, res) => {
-  const userId = req.cookies["user_id"];
+  const userId = req.session["user_id"];
   const shortURL = generateRandomString();
   const longURL = req.body.longURL;
   urlDatabase[shortURL] = {
@@ -181,7 +193,7 @@ app.get("/u/:id", (req, res) => {
 
 // DELETE ROUTE
 app.post("/urls/:id/delete", isLoggedIn, (req, res) => {
-  if (req.cookies["user_id"] !== urlDatabase[req.params.id].userID) {
+  if (req.session["user_id"] !== urlDatabase[req.params.id].userID) {
     return res.send(
       "<html><body>Error: 401: You do not have access this page</body></html>\n"
     );
@@ -193,7 +205,7 @@ app.post("/urls/:id/delete", isLoggedIn, (req, res) => {
 
 // EDIT ROUTE
 app.post("/urls/:id", isLoggedIn, (req, res) => {
-  if (req.cookies["user_id"] !== urlDatabase[req.params.id].userID) {
+  if (req.session["user_id"] !== urlDatabase[req.params.id].userID) {
     return res.send(
       "<html><body>Error: 401: You do not have access this page</body></html>\n"
     );
@@ -210,30 +222,6 @@ app.post("/login", (req, res) => {
   const password = req.body.password;
   // Search for a user with an existing email
   const foundUser = getUserbyEmail(users, email);
-  // Check if the email is not found
-  //   if (!foundUser) {
-  //     return res.status(403).send("Invalid email or password.");
-  //   }
-  //   // Check if the password is correct
-  //   if (foundUser.password !== password) {
-  //     return res.status(403).send("Invalid email or password.");
-  //   }
-  //   // Set cookie
-  //   res.cookie("user_id", foundUser.id);
-  //   // Redirect to /urls
-  //   res.redirect("/urls");
-  // });
-
-  /*////////////////COMMENTING OUT TO TEST/////////
-  if (foundUser && foundUser.password === password) {
-    // set cookie and redirect to /urls
-    res.cookie("user_id", foundUser.id);
-    res.redirect("/urls");
-  } else {
-    res.status(403).send("Incorrect email or password");
-  }
-});*/
-
   if (foundUser === null) {
     return res.status(401).send("Incorrect email or password");
   }
@@ -242,19 +230,19 @@ app.post("/login", (req, res) => {
     return res.status(401).send("Incorrect email or password");
   }
 
-  res.cookie("user_id", foundUser.id);
+  req.session["user_id"] = foundUser.id;
   res.redirect("/urls");
 });
 
 // LOGOUT ROUTE to clear cookies
 app.post("/logout", (req, res) => {
-  res.clearCookie("user_id");
+  req.session = null;
   res.redirect("/login");
 });
 
 //GET /register endpoint
 app.get("/register", isLoggedOut, (req, res) => {
-  const userId = req.cookies["user_id"];
+  const userId = req.session["user_id"];
   const templateVars = {
     user: getUserbyId(users, userId),
   };
@@ -287,14 +275,14 @@ app.post("/register", (req, res) => {
   // Adding the user to the database (email, user, and id)
   users[newUser.id] = newUser;
   // Set cookie
-  res.cookie("user_id", newUser.id);
+  req.session["user_id"] = newUser.id;
   // Redirect to the /urls page
   res.redirect("/urls");
 });
 
 // GET /login endpoint
 app.get("/login", isLoggedOut, (req, res) => {
-  const userId = req.cookies["user_id"];
+  const userId = req.session["user_id"];
   const templateVars = {
     user: getUserbyId(users, userId),
   };
